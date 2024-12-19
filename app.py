@@ -88,6 +88,10 @@ def generate_confidence_boost(resume_text):
         print(f"Error in generate_confidence_boost: {str(e)}")
         return f"Error generating confidence boost: {str(e)}"
 
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
+
 @app.route('/')
 def index():
     return render_template('index.html')

@@ -2,26 +2,29 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Copy requirements first for better caching
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p uploads
+# Create upload directory
+RUN mkdir -p /tmp/uploads && chmod 777 /tmp/uploads
 
-# Environment variables
+# Set environment variables
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
-ENV REDIS_URL=redis://redis:6379
-
-# Use Railway's PORT environment variable if available, otherwise default to 8080
-ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
-EXPOSE ${PORT}
+EXPOSE 5005
 
-# Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "app:app"]
+# Use gunicorn as the production server
+CMD gunicorn --bind 0.0.0.0:$PORT app:app --log-level debug
