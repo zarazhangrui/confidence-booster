@@ -4,10 +4,38 @@ from datetime import datetime, timedelta
 import os
 from functools import wraps
 from flask import request, jsonify
+from urllib.parse import urlparse
 
-# Initialize Redis
-redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
-redis_client = redis.from_url(redis_url)
+# Initialize Redis with error handling
+def get_redis_client():
+    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+    try:
+        # Parse the Redis URL
+        parsed_url = urlparse(redis_url)
+        
+        # Extract password if present
+        password = None
+        if '@' in redis_url:
+            password = parsed_url.password
+        
+        # Create Redis client
+        client = redis.Redis(
+            host=parsed_url.hostname,
+            port=parsed_url.port or 6379,
+            password=password,
+            ssl=redis_url.startswith('rediss://'),
+            decode_responses=True
+        )
+        
+        # Test connection
+        client.ping()
+        return client
+    except Exception as e:
+        print(f"Redis connection error: {str(e)}")
+        return None
+
+# Get Redis client
+redis_client = get_redis_client()
 
 # Constants
 DAILY_LIMIT_PER_IP = 5  # Maximum requests per IP per day

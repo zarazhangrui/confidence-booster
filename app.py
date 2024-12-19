@@ -112,54 +112,63 @@ def usage():
 @app.route('/upload', methods=['POST'])
 @check_rate_limit()
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
         
-        try:
-            # Extract text based on file type
-            if filename.endswith('.pdf'):
-                text = extract_text_from_pdf(filepath)
-            else:  # docx
-                text = extract_text_from_docx(filepath)
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
             
-            # Count input tokens
-            input_tokens = count_tokens(text)
-            
-            # Generate confidence boost
-            confidence_boost = generate_confidence_boost(text)
-            
-            # Count output tokens
-            output_tokens = count_tokens(confidence_boost)
-            
-            # Track total token usage
-            total_tokens = input_tokens + output_tokens
-            track_token_usage(total_tokens)
-            
-            # Clean up - delete the uploaded file
-            os.remove(filepath)
-            
-            return jsonify({
-                'message': confidence_boost,
-                'token_usage': {
-                    'input_tokens': input_tokens,
-                    'output_tokens': output_tokens,
-                    'total_tokens': total_tokens
-                }
-            })
-            
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-            
-    return jsonify({'error': 'Invalid file type'}), 400
+            try:
+                # Extract text based on file type
+                if filename.endswith('.pdf'):
+                    text = extract_text_from_pdf(filepath)
+                else:  # docx
+                    text = extract_text_from_docx(filepath)
+                
+                # Count input tokens
+                input_tokens = count_tokens(text)
+                
+                # Generate confidence boost
+                confidence_boost = generate_confidence_boost(text)
+                
+                # Count output tokens
+                output_tokens = count_tokens(confidence_boost)
+                
+                # Track total token usage (ignore if Redis is down)
+                try:
+                    total_tokens = input_tokens + output_tokens
+                    track_token_usage(total_tokens)
+                except:
+                    pass  # Continue even if token tracking fails
+                
+                # Clean up - delete the uploaded file
+                os.remove(filepath)
+                
+                return jsonify({
+                    'message': confidence_boost,
+                    'token_usage': {
+                        'input_tokens': input_tokens,
+                        'output_tokens': output_tokens,
+                        'total_tokens': input_tokens + output_tokens
+                    }
+                })
+                
+            except Exception as e:
+                # Clean up file in case of error
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                return jsonify({'error': str(e)}), 500
+                
+        return jsonify({'error': 'Invalid file type'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5005)
