@@ -57,38 +57,48 @@ def check_rate_limit():
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            ip = request.remote_addr
-            
-            # Check daily limit per IP
-            daily_key = f"daily:{ip}:{datetime.now().strftime('%Y-%m-%d')}"
-            daily_count = redis_client.get(daily_key)
-            
-            if daily_count and int(daily_count) >= DAILY_LIMIT_PER_IP:
-                return jsonify({
-                    'error': 'Daily limit exceeded. Please try again tomorrow.',
-                    'remaining_requests': 0,
-                    'reset_time': redis_client.ttl(daily_key)
-                }), 429
+            if not redis_client:
+                # If Redis is not available, log warning and allow request
+                print("Warning: Redis not available, skipping rate limit check")
+                return f(*args, **kwargs)
 
-            # Get monthly token usage
-            monthly_key = get_monthly_key()
-            monthly_tokens = redis_client.get(monthly_key)
-            monthly_tokens = int(monthly_tokens) if monthly_tokens else 0
+            try:
+                ip = request.remote_addr
+                
+                # Check daily limit per IP
+                daily_key = f"daily:{ip}:{datetime.now().strftime('%Y-%m-%d')}"
+                daily_count = redis_client.get(daily_key)
+                
+                if daily_count and int(daily_count) >= DAILY_LIMIT_PER_IP:
+                    return jsonify({
+                        'error': 'Daily limit exceeded. Please try again tomorrow.',
+                        'remaining_requests': 0,
+                        'reset_time': redis_client.ttl(daily_key)
+                    }), 429
 
-            if monthly_tokens >= MONTHLY_TOKEN_LIMIT:
-                return jsonify({
-                    'error': 'Monthly token limit exceeded. Please try again next month.',
-                    'current_usage': monthly_tokens,
-                    'limit': MONTHLY_TOKEN_LIMIT
-                }), 429
+                # Get monthly token usage
+                monthly_key = get_monthly_key()
+                monthly_tokens = redis_client.get(monthly_key)
+                monthly_tokens = int(monthly_tokens) if monthly_tokens else 0
 
-            # Increment daily counter
-            pipe = redis_client.pipeline()
-            pipe.incr(daily_key)
-            pipe.expire(daily_key, RATE_LIMIT_WINDOW)
-            pipe.execute()
+                if monthly_tokens >= MONTHLY_TOKEN_LIMIT:
+                    return jsonify({
+                        'error': 'Monthly token limit exceeded. Please try again next month.',
+                        'current_usage': monthly_tokens,
+                        'limit': MONTHLY_TOKEN_LIMIT
+                    }), 429
 
-            return f(*args, **kwargs)
+                # Increment daily counter
+                pipe = redis_client.pipeline()
+                pipe.incr(daily_key)
+                pipe.expire(daily_key, RATE_LIMIT_WINDOW)
+                pipe.execute()
+
+                return f(*args, **kwargs)
+            except Exception as e:
+                # If Redis fails, log error and allow request
+                print(f"Redis error in rate limit check: {str(e)}")
+                return f(*args, **kwargs)
         return decorated_function
     return decorator
 

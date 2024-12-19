@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from usage_limits import check_rate_limit, track_token_usage, get_usage_stats, count_tokens
 from admin_auth import requires_auth
+import datetime
 
 load_dotenv()
 
@@ -90,7 +91,18 @@ def generate_confidence_boost(resume_text):
 
 @app.route('/health')
 def health_check():
-    return jsonify({'status': 'healthy'}), 200
+    try:
+        # Basic app health check
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 @app.route('/')
 def index():
