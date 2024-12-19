@@ -1,0 +1,11 @@
+.env
+.env.*
+__pycache__
+*.pyc
+.git
+.gitignore
+uploads/*
+README.md
+*.pdf
+*.docx
+*.doc

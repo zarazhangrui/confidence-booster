@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Confidence Booster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+            <p class="text-gray-600">Last updated: <span id="lastUpdated"></span></p>
+        </div>
+
+        <!-- Usage Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Daily Usage -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Daily Usage</h2>
+                <div id="dailyUsage">Loading...</div>
+                <div class="mt-4">
+                    <h3 class="font-medium mb-2">Top IPs Today</h3>
+                    <div id="topIPs" class="text-sm"></div>
+                </div>
+            </div>
+
+            <!-- Monthly Usage -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Monthly Token Usage</h2>
+                <div id="monthlyUsage">Loading...</div>
+                <div class="mt-4">
+                    <h3 class="font-medium mb-2">Daily Token Trend</h3>
+                    <div id="tokenTrend" class="h-40"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="mt-8 bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Daily Request Limit</label>
+                    <input type="number" id="dailyLimit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Monthly Token Limit</label>
+                    <input type="number" id="monthlyLimit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+            </div>
+            <button id="saveSettings" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                Save Settings
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function updateStats() {
+            fetch('/admin/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Update daily usage
+                    document.getElementById('dailyUsage').innerHTML = `
+                        <div class="flex justify-between mb-2">
+                            <span>Total Requests: ${data.daily_requests.current}</span>
+                            <span>Limit: ${data.daily_requests.limit}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" 
+                                style="width: ${(data.daily_requests.current / data.daily_requests.limit) * 100}%">
+                            </div>
+                        </div>
+                    `;
+
+                    // Update monthly usage
+                    document.getElementById('monthlyUsage').innerHTML = `
+                        <div class="flex justify-between mb-2">
+                            <span>Used: ${data.monthly_tokens.current.toLocaleString()} tokens</span>
+                            <span>Limit: ${data.monthly_tokens.limit.toLocaleString()}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-blue-600 h-2.5 rounded-full" 
+                                style="width: ${(data.monthly_tokens.current / data.monthly_tokens.limit) * 100}%">
+                            </div>
+                        </div>
+                    `;
+
+                    // Update last updated time
+                    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        }
+
+        // Update stats every 30 seconds
+        updateStats();
+        setInterval(updateStats, 30000);
+    </script>
+</body>
+</html>
