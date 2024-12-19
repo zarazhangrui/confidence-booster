@@ -12,11 +12,16 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Create necessary directories
+RUN mkdir -p /app/templates && \
+    mkdir -p /tmp/uploads && \
+    chmod 777 /tmp/uploads
+
+# Copy the application code
 COPY . .
 
-# Create upload directory
-RUN mkdir -p /tmp/uploads && chmod 777 /tmp/uploads
+# Ensure templates are in the correct location
+RUN ls -la /app/templates/
 
 # Set environment variables
 ENV FLASK_APP=app.py
@@ -27,4 +32,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5005
 
 # Use gunicorn as the production server
-CMD gunicorn --bind 0.0.0.0:$PORT app:app --log-level debug
+CMD gunicorn --bind 0.0.0.0:$PORT --log-level debug --timeout 120 app:app
